@@ -30,22 +30,27 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
 
+from pydantic import BaseModel
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    name: Optional[str] = None
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register(
-    request: Request,
-    email: str,
-    password: str,
-    name: Optional[str] = None,
+    request: RegisterRequest,
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     """
     Register a new user.
 
     Args:
-        request: HTTP request object
-        email: User's email address
-        password: User's password (will be hashed)
-        name: Optional user's display name
+        request: Register request containing email, password, and name
         session: Database session
 
     Returns:
@@ -56,7 +61,7 @@ async def register(
     """
     # Check if user already exists
     existing_user = await session.execute(
-        select(User).where(User.email == email)
+        select(User).where(User.email == request.email)
     )
     if existing_user.scalar_one_or_none():
         raise HTTPException(
@@ -65,12 +70,12 @@ async def register(
         )
 
     # Hash password
-    hashed_password = pwd_context.hash(password)
+    hashed_password = pwd_context.hash(request.password)
 
     # Create new user
     user = User(
-        email=email,
-        name=name,
+        email=request.email,
+        name=request.name,
         hashed_password=hashed_password,
     )
 
@@ -91,18 +96,14 @@ async def register(
 
 @router.post("/login")
 async def login(
-    request: Request,
-    email: str,
-    password: str,
+    request: LoginRequest,
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     """
     Authenticate user and return JWT token.
 
     Args:
-        request: HTTP request object
-        email: User's email address
-        password: User's password
+        request: Login request containing email and password
         session: Database session
 
     Returns:
@@ -112,10 +113,10 @@ async def login(
         HTTPException: 401 if credentials are invalid
     """
     # Find user by email
-    result = await session.execute(select(User).where(User.email == email))
+    result = await session.execute(select(User).where(User.email == request.email))
     user = result.scalar_one_or_none()
 
-    if not user or not pwd_context.verify(password, user.hashed_password):
+    if not user or not pwd_context.verify(request.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
