@@ -15,6 +15,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel, EmailStr # Naya import data validation ke liye
 
 from src.database import get_session
 from src.middleware.auth import create_access_token, verify_token
@@ -29,34 +30,27 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # HTTP Bearer token scheme for logout endpoint
 security = HTTPBearer()
 
+# --- NAYE SCHEMAS (Data Body se lene ke liye) ---
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+class RegisterRequest(BaseModel):
+    email: EmailStr
+    password: str
+    name: Optional[str] = None
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register(
-    request: Request,
-    email: str,
-    password: str,
-    name: Optional[str] = None,
+    data: RegisterRequest, # Ab data body se aaye ga
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     """
     Register a new user.
-
-    Args:
-        request: HTTP request object
-        email: User's email address
-        password: User's password (will be hashed)
-        name: Optional user's display name
-        session: Database session
-
-    Returns:
-        dict: Success message and token
-
-    Raises:
-        HTTPException: 400 if email already exists
     """
     # Check if user already exists
     existing_user = await session.execute(
-        select(User).where(User.email == email)
+        select(User).where(User.email == data.email)
     )
     if existing_user.scalar_one_or_none():
         raise HTTPException(
@@ -65,12 +59,12 @@ async def register(
         )
 
     # Hash password
-    hashed_password = pwd_context.hash(password)
+    hashed_password = pwd_context.hash(data.password)
 
     # Create new user
     user = User(
-        email=email,
-        name=name,
+        email=data.email,
+        name=data.name,
         hashed_password=hashed_password,
     )
 
@@ -91,31 +85,17 @@ async def register(
 
 @router.post("/login")
 async def login(
-    request: Request,
-    email: str,
-    password: str,
+    data: LoginRequest, # Ab email/password body se aaye ga, secure tareeqe se
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     """
     Authenticate user and return JWT token.
-
-    Args:
-        request: HTTP request object
-        email: User's email address
-        password: User's password
-        session: Database session
-
-    Returns:
-        dict: User info and JWT token
-
-    Raises:
-        HTTPException: 401 if credentials are invalid
     """
     # Find user by email
-    result = await session.execute(select(User).where(User.email == email))
+    result = await session.execute(select(User).where(User.email == data.email))
     user = result.scalar_one_or_none()
 
-    if not user or not pwd_context.verify(password, user.hashed_password):
+    if not user or not pwd_context.verify(data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -137,18 +117,9 @@ async def login(
 async def logout(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """
     Logout endpoint (stateless - no server-side session to clear).
-
-    Args:
-        credentials: Bearer token (for validation only)
-
-    Returns:
-        dict: Success message
     """
-    # In a JWT stateless system, logout is client-side only
-    # We just verify the token is valid
     token = credentials.credentials
     verify_token(token)
-
     return {"message": "Logged out successfully"}
 
 
@@ -159,13 +130,6 @@ async def get_current_user_info(
 ) -> dict:
     """
     Get current user information.
-
-    Args:
-        credentials: Bearer token
-        session: Database session
-
-    Returns:
-        dict: User information
     """
     token = credentials.credentials
     user_id = verify_token(token)
