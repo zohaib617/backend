@@ -74,7 +74,7 @@ class Settings(BaseSettings):
 
     # CORS Configuration
     cors_origins: str = Field(
-        default="https://hackathon-2-phase-2-5wsuhdbf8-zohaibs-projects-ecc207d1.vercel.app",
+        default="https://hackathon-2-phase-2-rho.vercel.app/",
         description="Comma-separated list of allowed CORS origins",
     )
 
