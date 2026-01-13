@@ -1,25 +1,20 @@
-# FastAPI and ASGI Server
-fastapi==0.110.0
-uvicorn[standard]==0.27.1
-
-# Database and ORM
-sqlmodel==0.0.14
-asyncpg==0.29.0
-alembic==1.13.1
-
-# Data Validation
-pydantic==2.6.1
-pydantic-settings==2.1.0
-email-validator==2.1.0.post1
-
-# Authentication and Security
-python-jose[cryptography]==3.3.0
+pydantic[email]
+fastapi
+uvicorn[standard]
+sqlmodel
+asyncpg
+alembic
+pydantic
+pydantic-settings
+python-jose[cryptography]
+python-multipart
+python-dotenv
+structlog
+pytest
+pytest-asyncio
+httpx
+black
+mypy
+ruff
 passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
-python-multipart==0.0.9
-
-# Environment Variables
-python-dotenv==1.0.1
-
-# Logging and Monitoring
-structlog==24.1.0
